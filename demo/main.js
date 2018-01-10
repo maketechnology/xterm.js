@@ -90,6 +90,7 @@ var vue = new Vue({
       if(this.terminals.length != 0){
         var previousTerminalElement = document.getElementById(this.terminals[this.currentTerminal].name);
         previousTerminalElement.style.visibility = "hidden";
+       // previousTerminalElement.style.display = "none";
       }
 
       t = createTerminal();
@@ -117,12 +118,18 @@ var vue = new Vue({
     setTerminalSelected: function (index) {
 
       var previousTerminalElement = document.getElementById(this.terminals[this.currentTerminal].name);
-      previousTerminalElement.style.visibility = "hidden";    
+      
+    //  previousTerminalElement.style.display = "none";    
       var currentTerminalElement = document.getElementById(this.terminals[index].name);
-      if(previousTerminalElement.style.visibility == "hidden"){
-        currentTerminalElement.style.visibility = "visible";
+
+      if (previousTerminalElement != currentTerminalElement){
+        previousTerminalElement.style.visibility = "hidden";  
+        if(currentTerminalElement.style.visibility == "hidden"){
+  //      if(previousTerminalElement.style.display == "none"){
+          currentTerminalElement.style.visibility = "visible";
+        // currentTerminalElement.style.display = "block";
+        }
       }
-      //terminalContainer = currentTerminalElement;
 
       this.currentTerminal = index;
       this.rename = this.terminals[index].name;
