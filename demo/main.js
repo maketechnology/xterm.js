@@ -92,6 +92,7 @@ var vue = new Vue({
              else*/
 
             this.terminals.push({
+                active: true,
                 id: this.abc[this.countTerminal],
                 name: 'Terminal ' + this.abc[this.countTerminal],
                 terminal: term,
