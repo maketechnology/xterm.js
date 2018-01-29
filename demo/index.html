@@ -20,7 +20,7 @@
    <body>
       <div id="app">
          <v-app id="inspire">
-            <v-content >
+            <v-content>
                <!--v-container fluid fill-height style="padding: initial;"-->
                <div id="terminal-container"></div>
                <!--/v-container-->
@@ -39,6 +39,7 @@
                right
                app               
                :mini-variant.sync="mini"
+               width=200
                >
                <v-toolbar flat class="transparent">
                   <v-list class="pa-0">
@@ -50,39 +51,35 @@
                            </v-btn>
                         </v-list-tile-action>
                         
-                        <v-list-tile-avatar>
+                        <v-list-tile-avatar  v-if="mini">
                            <v-icon>web_asset</v-icon>
                         </v-list-tile-avatar>
                         
                         <v-list-tile-content>
-                           <v-list-tile-title>Terminals</v-list-tile-title>
+                           <v-list-tile-title class="header">Terminals</v-list-tile-title>
                         </v-list-tile-content>
 
                      </v-list-tile>
                   </v-list>
                </v-toolbar>
 
-               <v-list two-line>
+               <v-list>
                   <v-divider></v-divider>
                   <v-list-group v-for="(item, i) in terminals" :value="item.active" v-bind:key="item.name">
                      <v-list-tile slot="item" @click="setTerminalSelected(i)">
                         <v-list-tile-action>
                            <v-tooltip bottom>
                               <v-badge overlap flat :color="item.color" slot="activator">
-                                 <v-icon slot="badge" dark>{{ item.badge }}</v-icon>
-                                 <v-speed-dial
-                                    :v-model="item.fab"
-                                    direction="top" 
-                                    
-                                    transition="slide-y-reverse-transition"
-                                    >
+                                 <v-icon small slot="badge" dark>{{ item.badge }}</v-icon>
+
+                                 <v-speed-dial :v-model="item.fab" direction="top" transition="slide-y-reverse-transition">
                                     <v-btn slot="activator" flat class="transparent" small dark fab hover :v-model="item.fab">
-                                       <v-icon class="white--text headline">{{ item.id }}</v-icon>
-                                       <v-icon>close</v-icon>
+                                      <v-icon class="white--text" large>{{ item.id }}</v-icon>
+                                      <v-icon>close</v-icon>
                                     </v-btn>
                                     <v-tooltip left>
                                        <v-btn fab dark small color="indigo lighten-3" slot="activator" @click.native.stop="dialogRenameTerminal = !dialogRenameTerminal">
-                                          <v-icon>mode_edit</v-icon>
+                                          <v-icon class="smaller">mode_edit</v-icon>
                                        </v-btn>
                                        <span>Rename</span>
                                     </v-tooltip>
@@ -99,22 +96,23 @@
                                        <span>Remove</span>
                                     </v-tooltip>
                                  </v-speed-dial>
+
                               </v-badge>
                               <span :class="item.colorText"><kbd>{{ item.cmd }}</kbd> {{ item.status }}</span>
                            </v-tooltip>
                         </v-list-tile-action>
                         <v-list-tile-content>
-                           <v-list-tile-title>{{ item.name }}</v-list-tile-title>
+                           <v-list-tile-title class="smaller">{{ item.name }}</v-list-tile-title>
                         </v-list-tile-content>
                      </v-list-tile>
                   </v-list-group>
 
                   <v-tooltip left>
-                      <v-btn color="pink" dark small fixed bottom right fab slot="activator" v-on:click="addTerminal()">
+                      <v-btn color="pink" fixed dark small  right  fab slot="activator" v-on:click="addTerminal()">
                          <v-icon>add</v-icon>
                       </v-btn>
                       <span >Add Terminal</span>
-                   </v-tooltip>
+                  </v-tooltip>
                    <!--v-footer class="transparent">
                       <v-spacer></v-spacer>
                       <div> <v-btn color="pink" dark small  bottom right fab slot="activator"  v-on:click="addTerminal()">

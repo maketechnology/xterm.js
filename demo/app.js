@@ -7,7 +7,7 @@ var pty = require('node-pty');
 var terminals = {},
     logs = {};
 
-var server;
+var controller;
 
 app.use('/build', express.static(__dirname + '/../build'));
 
@@ -48,24 +48,27 @@ app.ws('/terminals/:pid', function(ws, req) {
     console.log('Connected to terminal ' + term.pid + ' - terminal.name: ' + term.name);
     console.log('logs[term.pid]: ' + logs[term.pid]);
     ws.send(logs[term.pid]);
-
+    
     var interactiveTerm = getTerminalForCmd(term);
+
     if (interactiveTerm) {
 
         //ws.removeListener('message', writeMsg);
         //interactiveTerm.ws.on('message', writeMsg)// esto es cuando el user escribe input en la interactive Term, redirijilo a cmdTerm ;
         interactiveTerm.cmdTerm = term
-
-        server.send(JSON.stringify({
-            type: 'status',
-            status: 'running',
-            interactiveTermPid: interactiveTerm.pid,
-            termPid: term.pid,
-            cmd: term.name
-        }));
-
+        
+        console.log('');
+        if(controller){
+            controller.send(JSON.stringify({
+                type: 'status',
+                status: 'running',
+                interactiveTermPid: interactiveTerm.pid,
+                termPid: term.pid,
+                cmd: term.name
+            }));
+        }
+       
         if (interactiveTerm.cwd != term.cwd) {
-            console.log('Entro al IF  app.ws(/terminals/:pid ----------interactiveTerm: ' + interactiveTerm.name);
             interactiveTerm.once('data', function(data) {
                 try {
                     interactiveTerm.ws.send(logs[term.pid]);
@@ -77,12 +80,12 @@ app.ws('/terminals/:pid', function(ws, req) {
             interactiveTerm.disable = true;
             interactiveTerm.write('cd ' + term.cwd + '\r');
         } else {
-            //	console.log('Entro al ELSE  app.ws(/terminals/:pid ----------interactiveTerm: ' + interactiveTerm.name);
-            interactiveTerm.ws.send(logs[term.pid]);
+                if(interactiveTerm.ws){
+                    interactiveTerm.ws.send(logs[term.pid]);
+                }
         }
     }
-
-    console.log('term.exited--------------->>>> ' + term.exited);
+   
     if (term.exited != undefined) {
         onExitCommand(term, term.exited, interactiveTerm, ws);
     } else {
@@ -90,11 +93,11 @@ app.ws('/terminals/:pid', function(ws, req) {
             onExitCommand(term, term.exited, interactiveTerm, ws);
         });
     }
-
+    
     term.on('data', function(data) {
+        console.log('Entry to  term.on(data...');
         try {
             ws.send(data);
-
 
             if (data.trim()) {
                 if (!interactiveTerm) {
@@ -118,14 +121,14 @@ app.ws('/terminals/:pid', function(ws, req) {
         }
     });
 
-
-
     //	ws.on('message', writeMsg(term, msg));
     ws.on('message', function(msg) {
         console.log('-exited: ' + msg);
-        server.send(JSON.stringify({
-            type: 'removeStatus'
-        }));
+        if(controller){
+            controller.send(JSON.stringify({
+                type: 'removeStatus'
+            }));
+        }
         if (term.cmdTerm) {
             term.cmdTerm.write(msg);
         } else {
@@ -142,35 +145,36 @@ app.ws('/terminals/:pid', function(ws, req) {
     });
 });
 
+
 function onExitCommand(term, exit, interactiveTerm, ws) {
     console.log('exited', term.pid, 'code', exit);
     //	server.send("{type: 'status': pid: term.pid, exitCode: exit, exitMsg: msg}");
-    console.log('-Server on term.on(exit -> ' + server);
-    console.log('-interactiveTerm on term.on(exit -> ' + interactiveTerm);
-    console.log('-term on term.on(exit -> ' + term);
+    if(!term.interactiveTerm){
+        term.ws.send("exitvalue-" + exit);
+    }
     if (interactiveTerm) {
         if (exit == 0) {
-            console.log('Entro al IF (exit==0): ');
-            console.log('interactiveTerm ---> ' + interactiveTerm.pid);
-            console.log('term ---> ' + term.pid);
-            server.send(JSON.stringify({
-                type: 'status',
-                status: 'success',
-                interactiveTermPid: interactiveTerm.pid,
-                termPid: term.pid,
-                cmd: term.name
-            }));
+
+            if(controller){
+                controller.send(JSON.stringify({
+                    type: 'status',
+                    status: 'success',
+                    interactiveTermPid: interactiveTerm.pid,
+                    termPid: term.pid,
+                    cmd: term.name
+                }));
+            }
+           
         } else {
-            console.log('Entro al ELSE: ');
-            console.log('interactiveTerm ---> ' + interactiveTerm.pid);
-            console.log('term.pid ---> ' + term.pid);
-            server.send(JSON.stringify({
-                type: 'status',
-                status: 'failed',
-                interactiveTermPid: interactiveTerm.pid,
-                termPid: term.pid,
-                cmd: term.name
-            }));
+            if(controller){
+                controller.send(JSON.stringify({
+                    type: 'status',
+                    status: 'failed',
+                    interactiveTermPid: interactiveTerm.pid,
+                    termPid: term.pid,
+                    cmd: term.name
+                }));
+            }
         }
         //	interactiveTerm.write('cd ..\r');
         interactiveTerm.write('\r');
@@ -182,26 +186,10 @@ function onExitCommand(term, exit, interactiveTerm, ws) {
     ws.close(1000, exit + "");
 }
 
-/*function writeMsg(term, msg) {
-	console.log('-------- writeMsg' + msg + '   term-' + term.name);
-		term.write(msg);
-	}*/
-
-/*function getTerminalForCmd(term) {
-	if(!term.interactiveTerm){
-		var interactiveTerm=null;
-		Object.keys(terminals).map(function(key, index) {
-			var t = terminals[key];
-			if(t.interactiveTerm && t!=term && !t.used){
-				interactiveTerm = t;
-			}
-		});
-		return interactiveTerm;
-	}	
-	return null;
-}*/
 
 function createTerminal(req) {
+    console.log('Entry to createTerminal() ');
+    console.log('command: '+ req.query.cmd + req.query.args );
     process.env.PROMPT_COMMAND = 'history -a; history -c; history -r';
     if (!process.env.HISTFILE) {
         process.env.HISTFILE = '/.bash_history';
@@ -220,10 +208,8 @@ function createTerminal(req) {
             env: process.env
         });
 
-
-
     term.on('exit', function(exit) {
-        console.log('------------------*****************-------Exited command');
+        console.log('-Exited command from createTerminal() ----> exitValue: ' + exit);
         term.exited = exit;
     });
 
@@ -240,7 +226,7 @@ function createTerminal(req) {
         term.interactiveTerm = false;
     }
     term.name = cmd + ' ' + req.query.args;
-
+    
     console.log('Created terminal with PID: ' + term.pid + ' - terminal.name: ' + term.name);
     terminals[term.pid] = term;
     logs[term.pid] = '';
@@ -259,17 +245,6 @@ function createTerminal(req) {
             env: process.env
         });
 
-
-        /*termHistory.on('data', function (data) {
-		try {
-			console.log('           --------termHistory---------    ');
-			console.log('          Send Output: ' + data);
-			console.log('           -----------------------------    ');
-		} catch (ex) {
-			// The WebSocket is not open, ignore
-		}
-	});*/
-
     }
 
 
@@ -282,8 +257,7 @@ function getTerminalForCmd(term) {
         var interactiveTerm = null;
         Object.keys(terminals).map(function(key, index) {
             var t = terminals[key];
-            console.log('is term Selected????  --->  ' + t.selected);
-            if (t.interactiveTerm && t != term && !t.used && t.selected) {
+        if (t.interactiveTerm && t != term && !t.used /*&& t.selected || !controller)*/) {
                 interactiveTerm = t;
             }
         });
@@ -296,15 +270,18 @@ function getTerminalForCmd(term) {
             };
             var newTerm = createTerminal(req);
             console.log('-newTerm.pid: ' + newTerm.pid);
-            console.log('-Server: ' + server);
+          //  console.log('-Server: ' + server);
 
+            term.ws.send("" + newTerm.pid);
             //	server.send("needConsole-" + newTerm.pid);
-            server.send(JSON.stringify({
-                type: 'needConsole',
-                pid: newTerm.pid
-            }));
+            if(controller){
+                controller.send(JSON.stringify({
+                    type: 'needConsole',
+                    pid: newTerm.pid
+                }));
+            }
 
-            console.log('-After send message to browser ');
+            //console.log('-After send message to browser ');
             //term.ws.send("needConsole-" + newTerm.pid);
             newTerm.name = 'needConsole';
             interactiveTerm = newTerm;
@@ -327,13 +304,13 @@ app.listen(port, host);
 
 app.ws('/controller', function(ws, req) {
     console.log('Entry to app.ws(/controller...) ');
-    server = ws;
+    controller = ws;
 
-    server.on('message', function(msg) {
+    controller.on('message', function(msg) {
         message = JSON.parse(msg);
 
-        console.log('message.type ---------->>>> ' + message.type);
-        console.log('message.pid ---------->>>> ' + message.pid);
+     //   console.log('message.type ---------->>>> ' + message.type);
+       // console.log('message.pid ---------->>>> ' + message.pid);
 
         if (message.type == 'selected') {
             //ietrals el array de  terminals y le setes selected al que esta y no selected al resto asi lo puedes usar a ese field para buscar el getTerminalForCmd
